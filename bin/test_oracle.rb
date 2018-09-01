@@ -1,3 +1,5 @@
+#encoding: utf-8
+
 require 'oci8'
 require 'active_record'
 require 'composite_primary_keys'
@@ -7,6 +9,7 @@ require 'pry'
 nombre_archivo = "VZLA 20OT"
 nombre_baremo = "20OT"
 componente_descripcion = "20OT"
+
 idioma = "ESP"
 idioma_acsel = case idioma
   when "ESP"
@@ -28,6 +31,9 @@ tipo_equipo = linea[15]
 subcomponente = linea[3]
 largo = linea[8]
 ancho = linea[9]
+componente_dano = linea[5]
+componente_accion = linea[7] 
+componente_costo = linea[14]
 
 db_config = {
 #host: '192.168.210.86',
@@ -56,7 +62,7 @@ maestroLista1= MaestroLista.first
 puts maestroLista1.inspect
 
 maestroComp1 = MaestroComp.first
-
+listas_accion_componente = nil
 ActiveRecord::Base.transaction do
 # Obtener la primera hoja
 #   Extraer el nombre del baremo
@@ -125,11 +131,14 @@ unless subcomponente_desc_obj
    
   subcomponente_obj.mi_comp_descs.create(idioma: idioma_obj.idevalorlista,desccomp: subcomponente)
 puts "---","SUBCOMPONENTE: #{subcomponente_obj.inspect}, desc: #{subcomponente_obj.mi_comp_descs.inspect}"
+else
+  subcomponente_obj = subcomponente_desc_obj.componente  
 end
-#puts MaestroComp.all.inspect
+
 #   Revisar cuales datos se deben insertar en otra tabla para obtener el id, u obtener el id del mismo si ya existe
 #   Insertar el Baremo
-   ### CREAR U OBTENER OFICINA
+
+### CREAR U OBTENER OFICINA
    ##Oficina.find_or_create_by( direc: )
 
    oficina = Oficina.first
@@ -151,9 +160,50 @@ puts "Baremo: #{baremo.inspect}"
 #=end
 
 ## ASOCIAR EL SUBCOMPONENTE
+## Obtener el ACCION
+# obtener el Id del equipo según el nombre del archivo
+  maestro_accion_componente = MaestroLista.find_by(descripcionlista: "TIPO DE ACCION EN EL BAREMO")
+  listas_accion_componente = maestro_accion_componente.valores_lista
+puts "LISTA ACCION COMPONENTES: #{listas_accion_componente.inspect}"
+#=begin
+  accion_obj = listas_accion_componente.find_or_create_by(descripcionvalor: componente_accion) do |valor|
+    valor.codigovalor = (listas_accion_componente.maximum(:codigovalor).to_i+1).to_s.rjust(2,"0")
+    valor.idevalorlista = ValorLista.maximum(:idevalorlista)+1 
+ end
+#=end
+puts "POST LISTA USO COMPONENTES: #{listas_accion_componente.reload.inspect}"
+puts "---"
+#=begin
+## Obtener el DAÑO
+# obtener el Id del equipo según el nombre del archivo
+  maestro_componente = MaestroLista.where("descripcionlista like ?","TIPO DE DA%O EN EL BAREMO").first
+  listas_componente = maestro_componente.valores_lista
+puts "LISTA DAÑO COMPONENTES: #{listas_componente.inspect}"
+  dano_obj = listas_componente.find_or_create_by(descripcionvalor: componente_dano) do |valor|
+    valor.codigovalor = (listas_accion_componente.maximum(:codigovalor).to_i+1).to_s.rjust(2,"0")
+    valor.idevalorlista = ValorLista.maximum(:idevalorlista)+1
+ end
+puts "POST LISTA DAÑO COMPONENTES: #{listas_componente.reload.inspect}"
+puts "---"
+#=end
 
+puts "TIPOACCION: #{accion_obj.inspect}"
+puts "TIPODANO: #{dano_obj.inspect}"
+
+# AGREGAR COMPONENTE AL BAREMO
+puts "BAREMO COMPONENTES: #{baremo.componentes.inspect}"
+pry
+baremo.componentes.find_or_create_by(idecomp: subcomponente_obj.idecomp) do |comp|
+  comp.tipoaccion = accion_obj.idevalorlista
+  comp.tipodano = dano_obj.idevalorlista
+  comp.cantcomp = 1
+  comp.costcomp = componente_costo
+  comp.totgen = componente_costo
+end
+
+puts "Baremo componentes: #{baremo.componentes.reload.inspect}"
 pry
 
-########  raise ActiveRecord::Rollback
+##  raise ActiveRecord::Rollback
 end
 
