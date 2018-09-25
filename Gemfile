@@ -11,6 +11,9 @@ gem 'pry'
 gem 'activerecord'
 gem 'activerecord-oracle_enhanced-adapter'
 gem 'composite_primary_keys'
+gem 'spreadsheet'
+gem 'rubyXL'
+
 group :test do
   gem "cucumber"
   gem "rspec"
